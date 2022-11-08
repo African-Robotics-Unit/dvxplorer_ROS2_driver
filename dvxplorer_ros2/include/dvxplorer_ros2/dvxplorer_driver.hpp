@@ -7,6 +7,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/thread_time.hpp>
+#include <atomic>
 
 // ROS2 stuff
 #include "rclcpp/rclcpp.hpp"
@@ -54,11 +55,11 @@ class DvXplorer : public rclcpp::Node
         // reset stuff
         rclcpp::Subscriber <builtin_interfaces::msg::Time> reset_sub_;
 	    rclcpp::Publisher<builtin_interfaces::msg::Time> reset_pub_;
-        void resetTimestampsCallback(const rclcpp::Time &time);
+        void resetTimestampsCallback(const rclcpp::Time &ts);
    
         std::string ns;
 
-	    std::atomic_bool running_;
+	    std::atomic<bool> running_;
 
         // Dynamic reconfigure stuff
 	    //boost::shared_ptr<dynamic_reconfigure::Server<dvxplorer_ros_driver::DVXplorer_ROS_DriverConfig>> server_;
@@ -67,7 +68,7 @@ class DvXplorer : public rclcpp::Node
 	
 	    rclcpp::Subscriber<sensor_msgs::msg::Imu>::SharedPtr imu_calibration_sub_;
 	    void imuCalibrationCallback(const std_msgs::msg::Empty::ConstPtr &msg);
-	    std::atomic_bool imu_calibration_running_;
+	    std::atomic<bool> imu_calibration_running_;
 	    int imu_calibration_sample_size_;
 	    std::vector<sensor_msgs::msg::Imu> imu_calibration_samples_;
 	    sensor_msgs::msg::Imu bias;
@@ -82,8 +83,8 @@ class DvXplorer : public rclcpp::Node
 
 	    boost::posix_time::time_duration delta_;
 
-	    std::atomic_int streaming_rate_;
-	    std::atomic_int max_events_;
+	    std::atomic<int> streaming_rate_;
+	    std::atomic<int> max_events_;
 
 	    struct caer_dvx_info dvxplorer_info_;
 	    bool master_;
