@@ -6,28 +6,30 @@
 
 namespace dvs_renderer {
 
-ImageTracking::ImageTracking(rclcpp::Node::SharedPtr node):
-    node(node),
-    start_time_(node->now().seconds())   
+ImageTracking::ImageTracking(double node_time):
+    start_time_(node_time)   
 {
-    image_transport::ImageTransport it_(node);
-    this->image_pub_ = it_.advertise("dvs_accumulated_events", 1);
-    this->image_pub_events_edges_ = it_.advertise("dvs_accumulated_events_edges", 1);
+    // image_transport::ImageTransport it_(node);
+    // this->image_pub_ = it_.advertise("dvs_accumulated_events", 1);
+    // this->image_pub_events_edges_ = it_.advertise("dvs_accumulated_events_edges", 1);
 }
 
 void ImageTracking::eventsCallback(
     const dvxplorer_interfaces::msg::EventArray::SharedPtr & msg)
 {
-    if (this->image_pub_.getNumSubscribers() == 0 && 
-        image_pub_events_edges_.getNumSubscribers() == 0)
-        return;
+    // if (this->image_pub_.getNumSubscribers() == 0 && 
+    //     image_pub_events_edges_.getNumSubscribers() == 0)
+    //     return;
     
     for (const auto & event : msg->events)
         this->events_.push_back(event);
 }
 
-void ImageTracking::imageCallback(
-    const sensor_msgs::msg::Image::ConstSharedPtr & msg)
+bool ImageTracking::imageCallback(
+    const sensor_msgs::msg::Image::ConstSharedPtr & msg,
+    sensor_msgs::msg::Image::SharedPtr image_events,
+    sensor_msgs::msg::Image::SharedPtr image_events_edges,
+    double node_current_time)
 {   
     // Setup image representation
     ImgData img_data;
@@ -95,14 +97,19 @@ void ImageTracking::imageCallback(
 
     if (img.points.size() < 4) {
         reset();
-    } else if (this->node->now().seconds() > start_time_ + 1.) {
-        render();
+    } else if (node_current_time > start_time_ + 1.) {
+        render(image_events, image_events_edges, node_current_time);
         reset();
+        return true;
     }
-    
+    return false;
 } // ImageTracking::imageCallback()
 
-void ImageTracking::render() {
+void ImageTracking::render(
+    sensor_msgs::msg::Image::SharedPtr image_events,
+        sensor_msgs::msg::Image::SharedPtr image_events_edges,
+        double node_current_time)
+{
 
     if (this->images_.empty())
         return;
@@ -172,7 +179,8 @@ void ImageTracking::render() {
     //output_img.convertTo(img_lower_depth, CV_8U, 1./256 / nth_el_val);
     output_img.convertTo(img_lower_depth, CV_8U, 1./256);
     cv::cvtColor(img_lower_depth, cv_image.image, CV_GRAY2BGR);
-    this->image_pub_.publish(cv_image.toImageMsg());
+    *image_events = *cv_image.toImageMsg();
+    // this->image_pub_.publish(cv_image.toImageMsg());
 
     int low_threshold = 30;
     double ratio = 3.;
@@ -180,8 +188,8 @@ void ImageTracking::render() {
     cv::Canny(edges_, edges_, low_threshold, low_threshold*ratio, 3);
     cv::Mat channels[] = { edges_, img_lower_depth, img_lower_depth };
     cv::merge(channels, 3, cv_image.image);
-
-    this->image_pub_events_edges_.publish(cv_image.toImageMsg());
+    *image_events_edges = *cv_image.toImageMsg();
+    // this->image_pub_events_edges_.publish(cv_image.toImageMsg());
 
 } // ImageTracking::render()
 

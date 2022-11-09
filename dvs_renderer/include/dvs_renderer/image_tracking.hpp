@@ -31,14 +31,26 @@ namespace dvs_renderer {
  */
 class ImageTracking {
 public:
-    ImageTracking(rclcpp::Node::SharedPtr node);
-    void eventsCallback(const dvxplorer_interfaces::msg::EventArray::SharedPtr & msg);
-    void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr & msg);
+    // ImageTracking(rclcpp::Node::SharedPtr node);
+    ImageTracking(double node_time);
+    void eventsCallback(
+        const dvxplorer_interfaces::msg::EventArray::SharedPtr & msg);
+    bool imageCallback(
+        const sensor_msgs::msg::Image::ConstSharedPtr & msg,
+        sensor_msgs::msg::Image::SharedPtr image_events,
+        sensor_msgs::msg::Image::SharedPtr image_events_edges,
+        double node_current_time);
 
 private:
-    rclcpp::Node::SharedPtr node;
+    // rclcpp::Node::SharedPtr node;
 
-    void render();
+    // void render();
+    // void reset();
+
+    void render(
+        sensor_msgs::msg::Image::SharedPtr image_events,
+        sensor_msgs::msg::Image::SharedPtr image_events_edges,
+        double node_current_time);
     void reset();
 
     struct ImgData {
@@ -56,8 +68,8 @@ private:
     double start_time_;
 
     cv::Mat edges_;
-    image_transport::Publisher image_pub_;
-    image_transport::Publisher image_pub_events_edges_;
+    // image_transport::Publisher image_pub_;
+    // image_transport::Publisher image_pub_events_edges_;
 
 }; // class ImageTracking
 

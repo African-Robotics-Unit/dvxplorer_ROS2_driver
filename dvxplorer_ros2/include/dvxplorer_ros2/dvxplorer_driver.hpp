@@ -35,13 +35,15 @@ class DvXplorer : public rclcpp::Node
         ~DvXplorer();
         void dataStop();
         static void onDisconnectUSB(void *);
+		
     
     private:
         //void callback(dvxplorer_ros_driver::DVXplorer_ROS_DriverConfig &config, uint32_t level);
-	    void callback(uint32_t level);
+	    //void callback(uint32_t level); ?????????????????????
         void readout();
 	    void resetTimestamps();
 	    void caerConnect();
+		void initCam();
 
         // ROS Publishers
         rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_pub_;                   // Cam info publisher handle

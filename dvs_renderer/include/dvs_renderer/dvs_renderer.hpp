@@ -24,7 +24,7 @@
 
 namespace dvs_renderer {
 
-class Renderer : rclcpp::Node {
+class Renderer : public rclcpp::Node {
 public:
     Renderer();
     virtual ~Renderer();
@@ -46,6 +46,9 @@ private:
 
     image_transport::Publisher image_pub_;
     image_transport::Publisher undistorted_image_pub_;
+
+    image_transport::Publisher image_events_pub_;
+    image_transport::Publisher image_pub_events_edges_;
 
     image_transport::Subscriber image_sub_;
     cv::Mat last_image_;

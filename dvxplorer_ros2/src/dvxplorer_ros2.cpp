@@ -7,8 +7,55 @@ DvXplorer::DvXplorer() :
 	Node("dvxplorer_node"), 
     imu_calibration_running_(false) {
 	
+    this->initCam();
+
+
+    // Initialise Publishers
+    this->event_array_pub_ = this->create_publisher<dvxplorer_interfaces::msg::EventArray>("/dv/events", 10);
+    this->cam_info_pub_ = this->create_publisher<sensor_msgs::msg::CameraInfo>("/dv/camera_info", 1);
+	this->imu_pub_ =  this->create_publisher<sensor_msgs::msg::Imu>("/dv/imu", 10);
+
+    // Setup camera info manager
+    this->cam_info_manager_ = std::make_shared<camera_info_manager::CameraInfoManager>(this);
+
+	// reset timestamps is publisher as master, subscriber as slave
+	if (this->master_) {
+		this->reset_pub_ = this->create_publisher<builtin_interfaces::msg::Time>(("/dv/reset_timestamps").c_str(), 1);
+	}
+	else {
+		this->reset_sub_ = this->create_subscription<builtin_interfaces::msg::Time>(("/dv/reset_timestamps").c_str(), 1, std::bind(&DvXplorer::resetTimestampsCallback, this));
+	}
+
+	// Open device.
+	caerConnect();
+
+	this->imu_calibration_sub_ = this->create_subscription(("/dv/calibrate_imu").c_str(), 1, std::bind(&DvXplorer::imuCalibrationCallback, this));
+
+	// start timer to reset timestamps for synchronization
+	if (this->reset_timestamps_delay > 0.0) {
+		timestamp_reset_timer_
+			= this-> create_wall_timer(std::chrono::duration<float>(this->reset_timestamps_delay), std:bind(&DvXplorer::resetTimerCallback, this));
+        RCLCPP_INFO_STREAM(this->get_logger(), "Started timer to reset timestamps on master DVS for synchronization (delay=%3.2fs).", this->reset_timestamps_delay);
+	}
+}
+
+// Destructor
+DvXplorer::~DvXplorer() {
+	if (this->running_) {
+		RCLCPP_INFO_STREAM(this->get_logger(), "Shutting down threads");
+		this->running_ = false;
+		this->readout_thread_.join();
+		RCLCPP_INFO_STREAM("Threads stopped");
+		caerLog(CAER_LOG_ERROR, "Destructor", "Data stop now");
+		caerDeviceDataStop(this->dvxplorer_handle_);
+		caerDeviceClose(&this->dvxplorer_handle_);
+	}
+}
+
+void initCam() {
     // load parameters
-    //parameters
+    RCLCPP_INFO(this->get_logger(), "Loading Camera Configuration")
+
     this->declare_parameter("serial_number", std::string(" "));
     this->get_parameter("serial_number", this->device_id_);
     RCLCPP_INFO_STREAM(this->get_logger(), "serial_number: " << this->device_id);
@@ -17,14 +64,13 @@ DvXplorer::DvXplorer() :
     this->get_parameter("master", this->master_);
     RCLCPP_INFO_STREAM(this->get_logger(), "master? " << this->master_);
     
-    float reset_timestamps_delay;
     this->declare_parameter("reset_timestamps_delay", -1.0f);
-    this->get_parameter("reset_timestamps_delay", reset_timestamps_delay);
-    RCLCPP_INFO_STREAM(this->get_logger(), "reset_timestamps_delay: " << reset_timestamps_delay);
+    this->get_parameter("reset_timestamps_delay", this->reset_timestamps_delay);
+    RCLCPP_INFO_STREAM(this->get_logger(), "reset_timestamps_delay: " << this->reset_timestamps_delay);
 
     this->declare_parameter("imu_calibration_sample_size", 1000);
-    this->get_parameter("imu_calibration_sample_size", reset);
-    RCLCPP_INFO_STREAM(this->get_logger(), "imu_calibration_sample_size: " << imu_calibration_sample_size_);
+    this->get_parameter("imu_calibration_sample_size", this->imu_calibration_sample_size);
+    RCLCPP_INFO_STREAM(this->get_logger(), "imu_calibration_sample_size: " << this->imu_calibration_sample_size_);
 
     
 	// initialize IMU bias
@@ -51,50 +97,6 @@ DvXplorer::DvXplorer() :
     this->declare_parameter("imu_bias/wz", 0.0f);
     this->get_parameter("imu_bias/wz", this->bias.angular_velocity.z);
     RCLCPP_INFO_STREAM(this->get_logger(), "imu_bias/wz: " << this->bias.angular_velocity.z);
-
-	// set namespace
-	ns = this->get_namespace();
-	if (ns == "/") {
-		ns = "/dv";
-	}
-
-    // Initialise Publishers
-    this->event_array_pub_ = this->create_publisher<dvxplorer_interfaces::msg::EventArray>(ns + "/events", 10);
-    this->camera_info_pub_ = this->create_publisher<sensor_msgs::msg::CameraInfo>(ns + "/camera_info", 1);
-	this->imu_pub_ =  this->create_publisher<sensor_msgs::msg::Imu>(ns + "/imu", 10);
-
-	// reset timestamps is publisher as master, subscriber as slave
-	if (master_) {
-		this->reset_pub_ = this->create_publisher<builtin_interfaces::msg::Time>((ns + "/reset_timestamps").c_str(), 1);
-	}
-	else {
-		this->reset_sub_ = this->create_subscription<builtin_interfaces::msg::Time>((ns + "/reset_timestamps").c_str(), 1, std::bind(&DvXplorer::resetTimestampsCallback, this));
-	}
-
-	// Open device.
-	caerConnect();
-
-	this->imu_calibration_sub_ = this->create_subscription((ns + "/calibrate_imu").c_str(), 1, std::bind(&DvXplorer::imuCalibrationCallback, this));
-
-	// start timer to reset timestamps for synchronization
-	if (reset_timestamps_delay > 0.0) {
-		timestamp_reset_timer_
-			= this-> create_wall_timer(std::chrono::duration<float>(reset_timestamps_delay), std:bind(&DvXplorer::resetTimerCallback, this));
-        RCLCPP_INFO_STREAM(this->get_logger(), "Started timer to reset timestamps on master DVS for synchronization (delay=%3.2fs).", reset_timestamps_delay);
-	}
-}
-
-// Destructor
-DvXplorer::~DvXplorer() {
-	if (this->running_) {
-		RCLCPP_INFO_STREAM(this->get_logger(), "Shutting down threads");
-		this->running_ = false;
-		this->readout_thread_.join();
-		RCLCPP_INFO_STREAM("Threads stopped");
-		caerLog(CAER_LOG_ERROR, "Destructor", "Data stop now");
-		caerDeviceDataStop(this->dvxplorer_handle_);
-		caerDeviceClose(&this->dvxplorer_handle_);
-	}
 }
 
 void DvXplorer::dataStop() {
@@ -120,10 +122,12 @@ void DvXplorer::caerConnect() {
 		device_is_running = (this->dvxplorer_handle_ != nullptr);
 
 		if (!device_is_running) {
-			RCLCPP_INFO("Could not find DVXplorer. Will retry every second.");
+			RCLCPP_ERROR("Error: Could not find DVXplorer.");
+            device_is_running = false;
 
-            rclcpp::Rate sleepRate(std::chrono::seconds(1));
-            sleepRate.sleep();
+            //rclcpp::Rate sleepRate(std::chrono::seconds(1));
+            //sleepRate.sleep();
+            ///????????
             //TO DO: COUNTER TO TRY OPENING DEVICE, ELSE BREAK
             //rclcpp::Executor::spin_node_once(this, )	
 			//rclcpp::Executor::spinOnce();
@@ -156,11 +160,6 @@ void DvXplorer::caerConnect() {
 	this->readout_thread_
 		= std::shared_ptr<boost::thread>(new boost::thread(std::bind(&DvXplorer::readout, this)));
 	
-    //TO DO!!!
-    // camera info handling
-    //ros::NodeHandle nh_ns(ns)
-	//camera_info_manager_.reset(new camera_info_manager::CameraInfoManager(nh_ns, device_id_));
-
 	// initialize timestamps
 	resetTimestamps();
 }
@@ -244,17 +243,156 @@ void DvXplorer::updateImuBias() {
 }
 
 
+void DvxplorerRosDriver::readout() {
+	// std::vector<dvs::Event> events;
+
+	caerDeviceConfigSet(this->dvxplorer_handle_, CAER_HOST_CONFIG_DATAEXCHANGE, CAER_HOST_CONFIG_DATAEXCHANGE_BLOCKING, true);
+	caerDeviceDataStart(this->dvxplorer_handle_, nullptr, nullptr, nullptr, &DvXplorer::onDisconnectUSB, this);
+
+	boost::posix_time::ptime next_send_time = boost::posix_time::microsec_clock::local_time();
+
+	dvxplorer_interfaces::msg::EventArray event_array_msg;
+
+	while (this->running_) {
+		try {
+			caerEventPacketContainer packetContainer = caerDeviceDataGet(this->dvxplorer_handle_);
+			if (packetContainer == nullptr) {
+				continue; // Skip if nothing there.
+			}
+
+			const int32_t packetNum = caerEventPacketContainerGetEventPacketsNumber(packetContainer);
+
+			for (int32_t i = 0; i < packetNum; i++) {
+				caerEventPacketHeader packetHeader = caerEventPacketContainerGetEventPacket(packetContainer, i);
+				if (packetHeader == nullptr) {
+					continue; // Skip if nothing there.
+				}
+
+				const int type = caerEventPacketHeaderGetEventType(packetHeader);
+
+				// Packet 0 is always the special events packet for DVS128, while packet is the polarity events packet.
+				if (type == POLARITY_EVENT) {
+					if (!event_array_msg) {
+						event_array_msg         = dvxplorer_interfaces::msg::EventArray(new dvxplorer_interfaces::msg::EventArray());
+						event_array_msg->height = this->dvxplorer_info_.dvsSizeY;
+						event_array_msg->width  = this->dvxplorer_info_.dvsSizeX;
+					}
+
+					caerPolarityEventPacket polarity = (caerPolarityEventPacket) packetHeader;
+
+					const int numEvents = caerEventPacketHeaderGetEventNumber(packetHeader);
+					for (int j = 0; j < numEvents; j++) {
+						// Get full timestamp and addresses of first event.
+						caerPolarityEvent event = caerPolarityEventPacketGetEvent(polarity, j);
+
+						dvxplorer_interfaces::msg::Event e;
+						e.x  = caerPolarityEventGetX(event);
+						e.y  = caerPolarityEventGetY(event);
+						//e.ts = reset_time_
+						//	   + ros::Duration().fromNSec(caerPolarityEventGetTimestamp64(event, polarity) * 1000);
+                        e.ts = this->reset_time_ + rclcpp::Duration().nanoseconds(caerPolarityEventGetTimestamp64(event, polarity) * 1000);
+						e.polarity = caerPolarityEventGetPolarity(event);
+
+						if (j == 0) {
+							event_array_msg->header.stamp = e.ts;
+						}
+
+						event_array_msg->events.push_back(e);
+					}
+
+					int streaming_rate = streaming_rate_;
+					int max_events     = max_events_;
+
+					// throttle event messages
+					if ((boost::posix_time::microsec_clock::local_time() > next_send_time) || (streaming_rate == 0)
+						|| ((max_events != 0) && (event_array_msg->events.size() > max_events))) {
+						this->event_array_pub_.publish(event_array_msg);
+
+						if (streaming_rate > 0) {
+							next_send_time += this->delta_;
+						}
+
+						if ((max_events != 0) && (event_array_msg->events.size() > max_events)) {
+							next_send_time = boost::posix_time::microsec_clock::local_time() + this->delta_;
+						}
+
+						event_array_msg.reset();
+					}
+
+					if (this->cam_info_manager_->isCalibrated()) {
+						sensor_msgs::msg::CameraInfo camera_info_msg(
+							new sensor_msgs::msg::CameraInfo(this->camera_info_manager_->getCameraInfo()));
+						this->cam_info_pub_.publish(camera_info_msg);
+					}
+				}
+				else if (type == IMU6_EVENT) {
+					caerIMU6EventPacket imu = (caerIMU6EventPacket) packetHeader;
+
+					const int numEvents = caerEventPacketHeaderGetEventNumber(packetHeader);
+
+					for (int j = 0; j < numEvents; j++) {
+						caerIMU6Event event = caerIMU6EventPacketGetEvent(imu, j);
+
+						sensor_msgs::msg::Imu imu_msg;
+
+						// convert from g's to m/s^2 and align axes with camera frame
+						imu_msg.linear_acceleration.x = -caerIMU6EventGetAccelX(event) * this->STANDARD_GRAVITY;
+						imu_msg.linear_acceleration.y = caerIMU6EventGetAccelY(event) * this->STANDARD_GRAVITY;
+						imu_msg.linear_acceleration.z = -caerIMU6EventGetAccelZ(event) * this->STANDARD_GRAVITY;
+						// convert from deg/s to rad/s and align axes with camera frame
+						imu_msg.angular_velocity.x = -caerIMU6EventGetGyroX(event) / 180.0 * M_PI;
+						imu_msg.angular_velocity.y = caerIMU6EventGetGyroY(event) / 180.0 * M_PI;
+						imu_msg.angular_velocity.z = -caerIMU6EventGetGyroZ(event) / 180.0 * M_PI;
+
+						// no orientation estimate: http://docs.ros.org/api/sensor_msgs/html/msg/Imu.html
+						imu_msg.orientation_covariance[0] = -1.0;
+
+						// time
+						//msg.header.stamp
+						//	= rclcpp::Time(reset_time_ + fromNSec(caerIMU6EventGetTimestamp64(event, imu) * 1000));
+                        imu_msg.header.stamp =  this->reset_time_ + rclcpp::Duration().nanoseconds(caerIMU6EventGetTimestamp64(event, imu) * 1000);
 
 
+						// frame
+						imu_msg.header.frame_id = "base_link";
 
+						// IMU calibration
+						if (this->imu_calibration_running_) {
+							if (this->imu_calibration_samples_.size() < this->imu_calibration_sample_size_) {
+								this->imu_calibration_samples_.push_back(imu_msg);
+							}
+							else {
+								this->imu_calibration_running_ = false;
+								updateImuBias();
+							}
+						}
 
+						// bias correction
+						imu_msg.linear_acceleration.x -= this->bias.linear_acceleration.x;
+						imu_msg.linear_acceleration.y -= this->bias.linear_acceleration.y;
+						imu_msg.linear_acceleration.z -= this->bias.linear_acceleration.z;
+						imu_msg.angular_velocity.x -= this->bias.angular_velocity.x;
+						imu_msg.angular_velocity.y -= this->bias.angular_velocity.y;
+						imu_msg.angular_velocity.z -= this->bias.angular_velocity.z;
 
+						this->imu_pub_.publish(imu_msg);
+					}
+				}
+			}
 
+			caerEventPacketContainerFree(packetContainer);
 
+			//ros::spinOnce();
+		}
+		catch (boost::thread_interrupted &) {
+			return;
+		}
+	}
 
-
-
-
-
+	caerDeviceDataStop(this->dvxplorer_handle_);
 }
+
+
+
+} // namespace dvxplorer_ros2_driver
 

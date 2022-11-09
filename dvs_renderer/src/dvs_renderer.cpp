@@ -4,7 +4,7 @@
 namespace dvs_renderer{
 
 Renderer::Renderer()
-: Node("dvs_renderer_node"), image_tracking_(shared_from_this())
+: Node("dvs_renderer_node"), image_tracking_(this->now().seconds())
 {   
     this->got_camera_info_ = false;
 
@@ -31,10 +31,18 @@ Renderer::Renderer()
             std::bind(&Renderer::cameraInfoCallback, this, std::placeholders::_1)
     );
 
-    image_transport::ImageTransport it_(shared_from_this());
-    this->image_sub_ = it_.subscribe<Renderer>("image", 1, &Renderer::imageCallback, this);
-    this->image_pub_ = it_.advertise("dvs_rendering", 1);
-    this->undistorted_image_pub_ = it_.advertise("dvs_undistorted", 1);
+    //image_transport::ImageTransport it_(shared_from_this());
+    //this->image_sub_ = it_.subscribe<Renderer>("image", 1, &Renderer::imageCallback, this);
+    this->image_sub_ = image_transport::create_subscription(
+            this,
+            "image",
+            std::bind(&Renderer::imageCallback, this, std::placeholders::_1), 
+            "raw");
+    this->image_pub_ = image_transport::create_publisher(this, "dvs_rendering");
+    this->undistorted_image_pub_ = image_transport::create_publisher(this, "dvs_undistorted");
+
+    this->image_events_pub_ = image_transport::create_publisher(this, "dvs_accumulated_events");
+    this->image_pub_events_edges_ = image_transport::create_publisher(this, "dvs_accumulated_events_edges");
 
     for (int i = 0; i < 2; ++i)
         for (int k = 0; k < 2; ++k)
@@ -72,8 +80,14 @@ void Renderer::cameraInfoCallback(
 } // cameraInfoCallback
 
 void Renderer::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr & msg)
-{
-    image_tracking_.imageCallback(msg);
+{   
+    sensor_msgs::msg::Image::SharedPtr image_events, image_events_edges;
+
+    if (image_tracking_.imageCallback(msg, image_events, image_events_edges, this->now().seconds())){
+        this->image_events_pub_.publish(image_events);
+        this->image_pub_events_edges_.publish(image_events_edges);    
+    }
+
 
     cv_bridge::CvImagePtr cv_ptr;
 
@@ -116,8 +130,9 @@ void Renderer::eventsCallback(
         ++event_stats_[1].events_counter_[msg->events[i].polarity];
     }
 
-    this->publishStats();
-    image_tracking_.eventsCallback(msg);
+    publishStats();
+    if (this->image_events_pub_.getNumSubscribers() == 0 && image_pub_events_edges_.getNumSubscribers() == 0)
+        image_tracking_.eventsCallback(msg);
 
     // only create image if at least one subscriber
     if (image_pub_.getNumSubscribers() > 0)
