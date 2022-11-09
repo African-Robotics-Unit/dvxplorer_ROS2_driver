@@ -97,6 +97,22 @@ void initCam() {
     this->declare_parameter("imu_bias/wz", 0.0f);
     this->get_parameter("imu_bias/wz", this->bias.angular_velocity.z);
     RCLCPP_INFO_STREAM(this->get_logger(), "imu_bias/wz: " << this->bias.angular_velocity.z);
+
+    // configuration parameters
+    //      -- DVS control parameters --
+
+    //      -- subsampling parameters --
+
+    //      -- polarity control parameters --
+
+    //      -- region of interest parameters --
+
+    //      -- inertial measurement unit parameters --
+
+    //      -- streaming rate parameters --
+    
+
+
 }
 
 void DvXplorer::dataStop() {
