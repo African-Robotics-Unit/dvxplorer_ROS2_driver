@@ -27,7 +27,7 @@ void ImageTracking::eventsCallback(
 }
 
 void ImageTracking::imageCallback(
-    const sensor_msgs::msg::Image::SharedPtr & msg)
+    const sensor_msgs::msg::Image::ConstSharedPtr & msg)
 {   
     // Setup image representation
     ImgData img_data;
@@ -182,7 +182,6 @@ void ImageTracking::render() {
     cv::merge(channels, 3, cv_image.image);
 
     this->image_pub_events_edges_.publish(cv_image.toImageMsg());
-
 
 } // ImageTracking::render()
 

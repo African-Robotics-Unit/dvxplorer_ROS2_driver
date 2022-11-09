@@ -24,19 +24,18 @@
 
 namespace dvs_renderer {
 
-class Renderer {
+class Renderer : rclcpp::Node {
 public:
-    Renderer(rclcpp::Node::SharedPtr node);
-    virtual ~Renderer() = default;
+    Renderer();
+    virtual ~Renderer();
 
 private:
-    rclcpp::Node::SharedPtr node_;
 
-    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr & msg) const;
-    void eventsCallback(const dvxplorer_interfaces::msg::EventArray::SharedPtr& msg) const;
-    void imageCallback(const sensor_msgs::msg::Image::SharedPtr& msg);
+    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+    void eventsCallback(const dvxplorer_interfaces::msg::EventArray::SharedPtr msg);
+    void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr & msg);
 
-    void publishStarts();
+    void publishStats();
 
     bool got_camera_info_;
     bool color_image_;

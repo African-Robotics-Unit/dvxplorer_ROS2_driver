@@ -33,7 +33,7 @@ class ImageTracking {
 public:
     ImageTracking(rclcpp::Node::SharedPtr node);
     void eventsCallback(const dvxplorer_interfaces::msg::EventArray::SharedPtr & msg);
-    void imageCallback(const sensor_msgs::msg::Image::SharedPtr & msg);
+    void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr & msg);
 
 private:
     rclcpp::Node::SharedPtr node;
