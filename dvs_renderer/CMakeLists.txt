@@ -17,17 +17,39 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(dvxplorer_interfaces REQUIRED)
+find_package(camera_info_manager REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
 
-add_executable(dvs_renderer_node src/dvs_renderer_node.cpp)
-target_include_directories(dvs_renderer_node PUBLIC
+add_executable(${PROJECT_NAME}_node src/dvs_renderer_node.cpp src/dvs_renderer.cpp src/image_tracking.cpp)
+
+ament_target_dependencies(${PROJECT_NAME}_node 
+"rclcpp"
+"image_transport"
+"sensor_msgs"
+"dvxplorer_interfaces"
+"camera_info_manager"
+"cv_bridge")
+
+target_include_directories(${PROJECT_NAME}_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:include>
+  ${OpenCV_INCLUDE_DIRS})
 
-install(TARGETS dvs_renderer_node
+
+target_link_libraries(${PROJECT_NAME}_node
+  ${OpenCV_LIBRARIES})
+
+install(TARGETS ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME})
+
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

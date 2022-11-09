@@ -13,10 +13,11 @@
   <test_depend>ament_lint_common</test_depend>
 
   <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
-  <depend>dvs_msg</depend>
+  <depend>dvxplorer_interfaces</depend>
   <depend>cv_bridge</depend>
-  <depend>image_transport</image_transport>
+  <depend>image_transport</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

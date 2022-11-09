@@ -1,0 +1,58 @@
+dvxplorer_node:
+  ros__parameters:
+
+    ####################
+    # DVS Control Configuration Parameters Go Here!
+    ####################
+
+    dvs_enabled: true
+    bias_sensitivity: 2                               # contrast sensitivity (0 to 4) [0 - Very low, 1 - Low, 2 - Default, 3 - High, 4 - Very high] 
+
+
+    ####################
+    # Subsampling Configuration Parameters Go Here!
+    ####################
+
+    subsampling_enabled: false
+    vertical_subsampling_factor: 0                   # vertical subsampling factor (0,1,3,7) [0 - None, 1 - Half, 3 - Quarter, 7 - Eighth]
+    horizontal_subsampling_factor: 0                 # horizontal subsampling factor (0,1,3,7) [0 - None, 1 - Half, 3 - Quarter, 7 - Eighth]
+
+
+    ####################
+    # Polarity Control Configuration Parameters Go Here!
+    ####################
+
+    polarity_on_only: false                         # only send ON polarity events
+    polarity_off_only: false                        # only send OFF polarity events
+    polarity_flatten: false                         # flatten all polarities to ON
+
+
+    ####################
+    # Region of Interest Configuration Parameters Go Here!
+    ####################
+
+    roi_enabled: false                              # enable DVS region of interest
+    roi_left: 0                                     # start position on the X axis for DVS region of interest. Max: 639
+    roi_top: 0                                      # start position on the Y axis for DVS region of interest. Max: 479
+    roi_width: 639                                  # end position on the X axis for DVS region of interest.   Max: 639
+    roi_height: 479                                 # end position on the Y axis for DVS region of interest.   Max: 479
+
+
+    ####################
+    # Inertial Measurement Unit Configuration Parameters Go Here!
+    ####################
+
+    imu_enabled: true                               # enable IMU
+    imu_acc_scale: 1                                # full scale of the accelerometer (0 to 3) [0 - 2g, 1 - 4g, 2 - 8g, 3 - 16g]
+    imu_gyro_scale: 2                               # full scale of the gyroscope (0 to 4) [0 - 2000deg/s, 1 - 1000deg/s, 2 - 500deg/s, 3 - 250deg/s, 4 - 125deg/s]
+
+
+    ####################
+    # Streaming Configuration Parameters Go Here!
+    ####################
+
+    streaming_rate: 30                              # integration time (0 is instant sending).   Max: 10000
+    max_events: 0                                   # maximum events per packet (0 is no limit). Max: 100000
+
+
+    
