@@ -1,0 +1,20 @@
+<launch>
+    <group>
+        <node pkg="dvxplorer_ros2" name="dvxplorer_node" exec="dvxplorer_ros2_node" output="screen">
+            <param name="serial_number" value="'DXM00104'" />
+            <param name="master" value="true" />
+            <param name="reset_timestamps_delay" value="2.0" />
+            <param name="imu_calibration_sample_size" value="1000" />
+            <param name="calib_file" value=""/>
+
+            <param name="imu_bias/ax" value="0.0"/>
+            <param name="imu_bias/ay" value="0.0"/>
+            <param name="imu_bias/az" value="0.0"/>
+            <param name="imu_bias/wx" value="0.0"/>
+            <param name="imu_bias/wy" value="0.0"/>
+            <param name="imu_bias/wz" value="0.0"/>
+            <param from="$(find-pkg-share dvxplorer_ros2)/config/dvxplorer_config.yaml"/>            
+        </node>
+    </group>
+
+</launch>

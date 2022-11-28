@@ -20,7 +20,7 @@ Renderer::Renderer()
 
     // Subscribers and publishers
     this->events_sub_ = this->create_subscription<dvxplorer_interfaces::msg::EventArray>(
-            "events",
+            "dv/events",
             1,
             std::bind(&Renderer::eventsCallback, this ,std::placeholders::_1)
     );

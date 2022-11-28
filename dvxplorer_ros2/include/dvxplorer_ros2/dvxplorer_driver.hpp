@@ -33,8 +33,7 @@ class DvXplorer : public rclcpp::Node
     public:
         DvXplorer();
         ~DvXplorer();
-        void dataStop();
-        static void onDisconnectUSB(void *);
+		static void onDisconnectUSB(void *);
 		
     
     private:
@@ -42,6 +41,7 @@ class DvXplorer : public rclcpp::Node
 	    void resetTimestamps();
 	    void caerConnect();
 		void initCam();
+		void dataStop();
 
         // ROS publishers
         rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_pub_;                   // Cam info publisher handle
@@ -55,69 +55,76 @@ class DvXplorer : public rclcpp::Node
 		struct caer_dvx_info dvxplorer_info_;
 
         // reset stuff
-        rclcpp::Subscriber <builtin_interfaces::msg::Time> reset_sub_;
-	    rclcpp::Publisher<builtin_interfaces::msg::Time> reset_pub_;
-        void resetTimestampsCallback(const rclcpp::Time &ts);
-		float reset_timestamps_delay;
+        rclcpp::Subscription<builtin_interfaces::msg::Time>::SharedPtr reset_sub_;
+	    rclcpp::Publisher<builtin_interfaces::msg::Time>::SharedPtr reset_pub_;
+        void resetTimestampsCallback(const builtin_interfaces::msg::Time::SharedPtr ts);
+		float reset_timestamps_delay_;
 		void resetTimerCallback();
         rclcpp::TimerBase::SharedPtr reset_timer_cb_; 
-		rclcpp::Time reset_time_;
+
+		builtin_interfaces::msg::Time reset_time_;
 
 		// imu stuff
-	    rclcpp::Subscriber<sensor_msgs::msg::Imu>::SharedPtr imu_calibration_sub_;
-	    void imuCalibrationCallback(const std_msgs::msg::Empty::ConstPtr &msg);
-	    std::atomic<bool> imu_calibration_running_;
+	    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_calibration_sub_;
+		void imuCalibrationCallback();
+	    bool imu_calibration_running_;
 	    int imu_calibration_sample_size_;
 	    std::vector<sensor_msgs::msg::Imu> imu_calibration_samples_;
 	    sensor_msgs::msg::Imu bias;
 	    void updateImuBias();
 
-	    template<typename T>
-	    int sgn(T val) {
+	    template <typename T> int sgn(T val) {
 		    return (T(0) < val) - (val < T(0));
             }
 
 	    std::shared_ptr<boost::thread> readout_thread_;
 
-		std::atomic<bool> running_;
+		bool running_;
 		
 	    static constexpr double STANDARD_GRAVITY = 9.81;
 
 		// dvs parameters
 		// general
+		int frame_count_; 
 		bool master_;
 	    std::string device_id_;
+		std::string cam_calib_file_;
+		bool cam_info_loaded_;
 		
+
 		// dvs control
-		bool dvs_enabled;
-		int bias_sensitivty;
+		bool dvs_enabled_;
+		int bias_sensitivity_;
 
 		// subsampling 
-		bool subsampling_enabled;
-    	int vertical_subsampling_factor;
-    	int horizontal_subsampling_factor;
+		bool subsampling_enabled_;
+    	int vertical_subsampling_factor_;
+    	int horizontal_subsampling_factor_;
 
 		// polarity
-		bool polarity_on_only;
-    	bool polarity_off_only;
-    	bool polarity_flatten;
+		bool polarity_on_only_;
+    	bool polarity_off_only_;
+    	bool polarity_flatten_;
 
 		// roi
-		bool roi_enabled;
-    	int roi_left;                                    
-    	int roi_top;                                    
-    	int roi_width;
-		int roi_height;     
+		bool roi_enabled_;
+    	int roi_left_;                                    
+    	int roi_top_;                                    
+    	int roi_width_;
+		int roi_height_;     
+
+		static constexpr int MAX_WIDTH = 640;
+		static constexpr int MAX_HEIGHT = 480;
 
 		// imu
-		bool imu_enabled;
-		int imu_acc_scale;
-		int imu_gyro_scale;
+		bool imu_enabled_;
+		int imu_acc_scale_;
+		int imu_gyro_scale_;
 
 		// streaming                        
 		boost::posix_time::time_duration delta_;
-	    std::atomic<int> streaming_rate_;
-	    std::atomic<int> max_events_;
+	    int streaming_rate_;
+	    int max_events_;
 			    
 };
 
